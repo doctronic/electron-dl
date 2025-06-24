@@ -106,13 +106,12 @@ function registerListener(session, options, callback = () => {}) {
 			}
 
 			if (state === 'interrupted') {
-				if (item.canResume() && currentRetry != retryLimit) {
+				if (item.canResume() && currentRetry !== retryLimit) {
 					setTimeout(() => {
 						item.resume();
 						currentRetry++;
 					}, 1000);
-				}
-				else {
+				} else {
 					const message = pupa(errorMessage, {filename: path.basename(filePath)});
 					callback(new Error(message));
 					item.cancel();
