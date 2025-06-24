@@ -37,6 +37,7 @@ function registerListener(session, options, callback = () => {}) {
 	};
 
 	const listener = (event, item, webContents) => {
+		let currentRetry = 0;
 		downloadItems.add(item);
 		totalBytes += item.getTotalBytes();
 
@@ -69,7 +70,9 @@ function registerListener(session, options, callback = () => {}) {
 			item.setSavePath(filePath);
 		}
 
-		item.on('updated', () => {
+		item.on('updated', (event, state) => {
+			const retryLimit = options.retryLimit ?? 60;
+
 			receivedBytes = completedBytes;
 			for (const item of downloadItems) {
 				receivedBytes += item.getReceivedBytes();
@@ -100,6 +103,24 @@ function registerListener(session, options, callback = () => {}) {
 					transferredBytes: receivedBytes,
 					totalBytes,
 				});
+			}
+
+			if (state === 'interrupted') {
+				if (item.canResume() && currentRetry != retryLimit) {
+					setTimeout(() => {
+						item.resume();
+						currentRetry++;
+					}, 1000);
+				}
+				else {
+					const message = pupa(errorMessage, {filename: path.basename(filePath)});
+					callback(new Error(message));
+					item.cancel();
+				}
+			}
+
+			if (state === 'progressing') {
+				currentRetry = 0;
 			}
 		});
 
