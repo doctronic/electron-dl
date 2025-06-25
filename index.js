@@ -38,6 +38,8 @@ function registerListener(session, options, callback = () => {}) {
 
 	const listener = (event, item, webContents) => {
 		let currentRetry = 0;
+		let itemLastTransferredBytes = 0;
+
 		downloadItems.add(item);
 		totalBytes += item.getTotalBytes();
 
@@ -72,6 +74,7 @@ function registerListener(session, options, callback = () => {}) {
 
 		item.on('updated', (event, state) => {
 			const retryLimit = options.retryLimit ?? 60;
+			let hasTransferredBytesChanged = false;
 
 			receivedBytes = completedBytes;
 			for (const item of downloadItems) {
@@ -86,10 +89,13 @@ function registerListener(session, options, callback = () => {}) {
 				window_.setProgressBar(progressDownloadItems());
 			}
 
-			if (typeof options.onProgress === 'function') {
-				const itemTransferredBytes = item.getReceivedBytes();
-				const itemTotalBytes = item.getTotalBytes();
+			const itemTransferredBytes = item.getReceivedBytes();
+			const itemTotalBytes = item.getTotalBytes();
+			const toleranceBytes = 1024 * 50;
+			hasTransferredBytesChanged = itemTransferredBytes > itemLastTransferredBytes + toleranceBytes;
+			itemLastTransferredBytes = itemTransferredBytes;
 
+			if (typeof options.onProgress === 'function') {
 				options.onProgress({
 					percent: itemTotalBytes ? itemTransferredBytes / itemTotalBytes : 0,
 					transferredBytes: itemTransferredBytes,
@@ -118,7 +124,7 @@ function registerListener(session, options, callback = () => {}) {
 				}
 			}
 
-			if (state === 'progressing') {
+			if (hasTransferredBytesChanged) {
 				currentRetry = 0;
 			}
 		});
@@ -198,6 +204,7 @@ export default function electronDl(options = {}) {
 }
 
 export async function download(window_, url, options) {
+	console.log('xxxxxx', url, options);
 	return new Promise((resolve, reject) => {
 		options = {
 			...options,
