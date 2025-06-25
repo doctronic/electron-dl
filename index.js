@@ -204,7 +204,6 @@ export default function electronDl(options = {}) {
 }
 
 export async function download(window_, url, options) {
-	console.log('xxxxxx', url, options);
 	return new Promise((resolve, reject) => {
 		options = {
 			...options,
