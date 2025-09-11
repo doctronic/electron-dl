@@ -12,6 +12,7 @@ import extName from 'ext-name';
 
 export class CancelError extends Error {}
 
+// TODO: Use https://nodejs.org/api/util.html#class-utilmimetype when targeting Node.js 20.
 const getFilenameFromMime = (name, mime) => {
 	const extensions = extName.mime(mime);
 
