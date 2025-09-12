@@ -124,11 +124,19 @@ declare namespace electronDl {
 
 		If `defaultPath` is not explicity defined, a default value is assigned based on the file path.
 
-		@default {}
-		*/
-		readonly dialogOptions?: SaveDialogOptions;
+	@default {}
+	*/
+	readonly dialogOptions?: SaveDialogOptions;
+
+	/**
+	Optional. Specifies how many times the download should automatically attempt (attempt every second) to resume if it is interrupted and can be resumed.
+	If the download cannot be resumed after the specified number of attempts, it will be aborted.
+
+	@default 60
+	*/
+	readonly retryLimit?: number;
 	}
-}
+};
 
 /**
 Error thrown if `item.cancel()` was called.

@@ -65,6 +65,9 @@ function registerListener(session, options, callback = () => {}) {
 	};
 
 	const listener = (event, item, webContents) => {
+		let currentRetry = 0;
+		let itemLastTransferredBytes = 0;
+
 		downloadItems.add(item);
 		totalBytes += item.getTotalBytes();
 
@@ -94,7 +97,10 @@ function registerListener(session, options, callback = () => {}) {
 			item.setSavePath(filePath);
 		}
 
-		item.on('updated', () => {
+		item.on('updated', (event, state) => {
+			const retryLimit = options.retryLimit ?? 60;
+			const toleranceBytes = options.toleranceBytes ?? 1024 * 50;
+
 			receivedBytes = completedBytes;
 			for (const item of downloadItems) {
 				receivedBytes += item.getReceivedBytes();
@@ -108,10 +114,16 @@ function registerListener(session, options, callback = () => {}) {
 				window_.setProgressBar(progressDownloadItems());
 			}
 
-			if (typeof options.onProgress === 'function') {
-				const itemTransferredBytes = item.getReceivedBytes();
-				const itemTotalBytes = item.getTotalBytes();
+			const itemTransferredBytes = item.getReceivedBytes();
+			const itemTotalBytes = item.getTotalBytes();
+			const hasTransferredBytesChanged = itemTransferredBytes > itemLastTransferredBytes + toleranceBytes;
+			itemLastTransferredBytes = itemTransferredBytes;
 
+			if (hasTransferredBytesChanged) {
+				currentRetry = 0;
+			}
+
+			if (typeof options.onProgress === 'function') {
 				options.onProgress({
 					percent: itemTotalBytes ? itemTransferredBytes / itemTotalBytes : 0,
 					transferredBytes: itemTransferredBytes,
@@ -125,6 +137,20 @@ function registerListener(session, options, callback = () => {}) {
 					transferredBytes: receivedBytes,
 					totalBytes
 				});
+			}
+
+			if (state === 'interrupted') {
+				if (item.canResume() && currentRetry < retryLimit) {
+					currentRetry++;
+
+					setTimeout(() => {
+						item.resume();
+					}, 1000);
+				} else {
+					const message = pupa(errorMessage, {filename: path.basename(filePath)});
+					callback(new Error(message));
+					item.cancel();
+				}
 			}
 		});
 
@@ -201,11 +227,12 @@ module.exports = (options = {}) => {
 	});
 };
 
-module.exports.download = (window_, url, options) => new Promise((resolve, reject) => {
-	options = {
-		...options,
-		unregisterWhenDone: true
-	};
+export async function download(window_, url, options) {
+	return new Promise((resolve, reject) => {
+		options = {
+			...options,
+			unregisterWhenDone: true,
+		};
 
 	registerListener(window_.webContents.session, options, (error, item) => {
 		if (error) {
