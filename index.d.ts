@@ -131,6 +131,14 @@ export type Options = {
 	@default {}
 	*/
 	readonly dialogOptions?: SaveDialogOptions;
+
+	/**
+	Optional. Specifies how many times the download should automatically attempt (attempt every second) to resume if it is interrupted and can be resumed.
+	If the download cannot be resumed after the specified number of attempts, it will be aborted.
+
+	@default 60
+	*/
+	readonly retryLimit?: number;
 };
 
 /**
