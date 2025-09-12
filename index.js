@@ -227,22 +227,23 @@ module.exports = (options = {}) => {
 	});
 };
 
-export async function download(window_, url, options) {
+module.exports.download = async function download(window_, url, options) {
 	return new Promise((resolve, reject) => {
 		options = {
 			...options,
 			unregisterWhenDone: true,
 		};
 
-	registerListener(window_.webContents.session, options, (error, item) => {
-		if (error) {
-			reject(error);
-		} else {
-			resolve(item);
-		}
-	});
+		registerListener(window_.webContents.session, options, (error, item) => {
+			if (error) {
+				reject(error);
+			} else {
+				resolve(item);
+			}
+		});
 
-	window_.webContents.downloadURL(url);
-});
+		window_.webContents.downloadURL(url);
+	});
+}
 
 module.exports.CancelError = CancelError;
