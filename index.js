@@ -74,7 +74,7 @@ function registerListener(session, options, callback = () => {}) {
 
 		item.on('updated', (event, state) => {
 			const retryLimit = options.retryLimit ?? 60;
-			let hasTransferredBytesChanged = false;
+			const toleranceBytes = options.toleranceBytes ?? 1024 * 50;
 
 			receivedBytes = completedBytes;
 			for (const item of downloadItems) {
@@ -91,9 +91,12 @@ function registerListener(session, options, callback = () => {}) {
 
 			const itemTransferredBytes = item.getReceivedBytes();
 			const itemTotalBytes = item.getTotalBytes();
-			const toleranceBytes = 1024 * 50;
-			hasTransferredBytesChanged = itemTransferredBytes > itemLastTransferredBytes + toleranceBytes;
+			const hasTransferredBytesChanged = itemTransferredBytes > itemLastTransferredBytes + toleranceBytes;
 			itemLastTransferredBytes = itemTransferredBytes;
+
+			if (hasTransferredBytesChanged) {
+				currentRetry = 0;
+			}
 
 			if (typeof options.onProgress === 'function') {
 				options.onProgress({
@@ -112,20 +115,17 @@ function registerListener(session, options, callback = () => {}) {
 			}
 
 			if (state === 'interrupted') {
-				if (item.canResume() && currentRetry !== retryLimit) {
+				if (item.canResume() && currentRetry < retryLimit) {
+					currentRetry++;
+
 					setTimeout(() => {
 						item.resume();
-						currentRetry++;
 					}, 1000);
 				} else {
 					const message = pupa(errorMessage, {filename: path.basename(filePath)});
 					callback(new Error(message));
 					item.cancel();
 				}
-			}
-
-			if (hasTransferredBytesChanged) {
-				currentRetry = 0;
 			}
 		});
 
